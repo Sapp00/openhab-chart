@@ -3,7 +3,7 @@ entries:
   openhab:
   - apiVersion: v2
     appVersion: 4.2.1
-    created: "2026-01-10T00:27:30.959690791+01:00"
+    created: "2026-01-10T00:31:07.796171131+01:00"
     description: A Helm chart for openHAB 4.2 on Kubernetes.
     digest: 35242819f09a25f8940ad58c00c4fe6dab4079ba8830e5c2e57b109af67b757a
     keywords:
@@ -16,4 +16,19 @@ entries:
     urls:
     - https://raw.githubusercontent.com/Sapp00/openhab-chart/main/openhab-1.0.0.tgz
     version: 1.0.0
-generated: "2026-01-10T00:27:30.958343129+01:00"
+  - apiVersion: v2
+    appVersion: 4.2.1
+    created: "2026-01-10T00:31:07.794187876+01:00"
+    description: A Helm chart for openHAB 4.2 on Kubernetes.
+    digest: 46cd8e8489573a344bc8dcc4be9ef86a63cbb26d00cf9a1cb18efedc33ffdc67
+    keywords:
+    - openhab
+    - smarthome
+    - automation
+    - iot
+    name: openhab
+    type: application
+    urls:
+    - https://raw.githubusercontent.com/Sapp00/openhab-chart/main/openhab-0.0.1.tgz
+    version: 0.0.1
+generated: "2026-01-10T00:31:07.791756907+01:00"
