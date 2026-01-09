@@ -14,12 +14,16 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+      {{- with .Values.podSecurityContext }}
       securityContext:
-        runAsUser: 9001
-        runAsGroup: 9001
-        fsGroup: 9001
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: openhab
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command: ["/bin/bash", "-c"]
           args:
@@ -57,12 +61,10 @@ spec:
             - name: auth-volume
               mountPath: /var/run/secrets/auth
               readOnly: true
-            # ... andere Mounts
       volumes:
         - name: auth-volume
           projected:
             sources:
-              # Logik für den Hash
               - secret:
                   {{- if .Values.openhab.setup.passwordHash.secretRef }}
                   name: {{ .Values.openhab.setup.passwordHash.secretRef.name }}
@@ -71,7 +73,6 @@ spec:
                   name: {{ .Release.Name }}-auth-internal
                   items: [{ key: "passwordHash", path: "admin-hash" }]
                   {{- end }}
-              # Logik für den Salt
               - secret:
                   {{- if .Values.openhab.setup.passwordSalt.secretRef }}
                   name: {{ .Values.openhab.setup.passwordSalt.secretRef.name }}

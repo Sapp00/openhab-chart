@@ -1,11 +1,12 @@
 # ==============================================================================
-# openHAB Helm Chart Values
+# openHAB Helm Chart - Best Practice Values
 # ==============================================================================
+# Default values follow the 'Restricted' Pod Security Standard.
 
 ## @section Global parameters
 ##
 
-## @param replicaCount Number of openHAB nodes (Note: openHAB 4 is typically RWO and works best with 1 replica)
+## @param replicaCount Number of openHAB nodes (Recommended: 1)
 replicaCount: 1
 
 ## @section Image parameters
@@ -14,7 +15,7 @@ replicaCount: 1
 image:
   ## @param image.repository openHAB image repository
   repository: openhab/openhab
-  ## @param image.tag openHAB image tag (e.g., 4.2.1)
+  ## @param image.tag openHAB image tag
   tag: 4.2.1
   ## @param image.pullPolicy Image pull policy
   pullPolicy: IfNotPresent
@@ -23,11 +24,11 @@ image:
 ##
 
 persistence:
-  ## @param persistence.enabled Enable persistence using PVC
+  ## @param persistence.enabled Enable PVC for userdata storage
   enabled: true
   ## @param persistence.storageClass Storage class name (e.g., freenas-iscsi-csi)
   storageClass: "freenas-iscsi-csi"
-  ## @param persistence.size Size of the persistent volume
+  ## @param persistence.size Size of the userdata volume
   size: 5Gi
   ## @param persistence.accessMode PVC Access Mode
   accessMode: ReadWriteOnce
@@ -48,7 +49,7 @@ network:
   certificate:
     ## @param network.certificate.issuerName Cert-manager issuer name
     issuerName: "ca-issuer"
-    ## @param network.certificate.issuerKind Cert-manager issuer kind (ClusterIssuer or Issuer)
+    ## @param network.certificate.issuerKind Cert-manager issuer kind
     issuerKind: "ClusterIssuer"
 
 ## @section openHAB Application parameters
@@ -56,32 +57,31 @@ network:
 
 openhab:
   ## @subsection Setup & Authentication
-  ## This section handles the initial bootstrapping of the admin user and UI.
+  ## Handles the initial bootstrapping of the admin user and UI to skip the wizard.
   setup:
     ## @param openhab.setup.adminUser The username for the primary administrator
     adminUser: "admin"
 
     ## @param openhab.setup.passwordHash Administrative password hash
-    ## Use EITHER 'value' for plaintext (not recommended) OR 'secretRef' to link an existing Secret.
+    ## Provide 'value' (plaintext) OR 'secretRef' (external secret).
     passwordHash:
       ## @param openhab.setup.passwordHash.value Plaintext hash
       value: "nvJAbQ..." 
-      ## @param openhab.setup.passwordHash.secretRef Reference to an external secret
+      ## @param openhab.setup.passwordHash.secretRef Reference to a pre-existing Secret
       # secretRef:
       #   name: "openhab-auth-credentials"
       #   key: "admin-password-hash"
 
     ## @param openhab.setup.passwordSalt Administrative password salt
-    ## Use EITHER 'value' for plaintext OR 'secretRef' to link an existing Secret.
     passwordSalt:
       ## @param openhab.setup.passwordSalt.value Plaintext salt
       value: "SiAs+Q..."
-      ## @param openhab.setup.passwordSalt.secretRef Reference to an external secret
+      ## @param openhab.setup.passwordSalt.secretRef Reference to a pre-existing Secret
       # secretRef:
       #   name: "openhab-auth-credentials"
       #   key: "admin-password-salt"
 
-    ## @param openhab.setup.pages Default UI pages to initialize (Prevents Setup Wizard)
+    ## @param openhab.setup.pages Default UI pages to initialize (Required to bypass Setup Wizard)
     pages:
       overview:
         label: "Overview"
@@ -92,12 +92,11 @@ openhab:
   env:
     ## @param openhab.env.timezone System timezone
     timezone: "Europe/Berlin"
-    ## @param openhab.env.extraJavaOpts Additional Java properties (e.g. for proxying and disabling wizard)
+    ## @param openhab.env.extraJavaOpts Additional Java properties
     extraJavaOpts: "-Dorg.eclipse.jetty.server.forwarded=true -Dorg.openhab.core.ui.setupwizard:setupWizard=false -Duser.timezone=Europe/Berlin -Djava.net.prefIPv4Stack=true"
 
   ## @subsection Dynamic Configuration Files
-  ## These files are automatically linked/copied into /openhab/conf/ based on their extensions.
-  ## Supported: .things, .items, .cfg, .rules, .sitemaps, .script
+  ## These files are mapped into /openhab/conf/ subfolders based on extension.
   configFiles:
     "addons.cfg": |
       binding = mqtt,chromecast,shelly,matter
@@ -109,7 +108,7 @@ openhab:
       Bridge mqtt:broker:mosquitto "Mosquitto" [ host="mosquitto.svc.cluster.local", secure=false ] {
           Thing topic shelly_treppe {
               Channels:
-                  Type switch : relay [ stateTopic="shellies/shelly1-81F89FBBA/relay/0", commandTopic="shellies/shelly1-81F89FBBA/relay/0/command", on="on", off="off" ]
+                  Type switch : relay [ stateTopic="shellies/shelly1-8CAAB55D8025/relay/0", commandTopic="shellies/shelly1-8CAAB55D8025/relay/0/command", on="on", off="off" ]
           }
       }
 
@@ -123,31 +122,36 @@ openhab:
 ##
 
 resources:
-  ## @param resources.requests.cpu CPU request
-  ## @param resources.requests.memory Memory request
   requests:
     cpu: 500m
     memory: 1Gi
-  ## @param resources.limits.cpu CPU limit
-  ## @param resources.limits.memory Memory limit
   limits:
     cpu: "2"
     memory: 3Gi
 
-## @section Security Context
+## @section Security Context (Restricted PSA Compliance)
 ##
 
 podSecurityContext:
-  ## @param podSecurityContext.fsGroup Group ID for file system ownership
+  ## @param podSecurityContext.runAsNonRoot Enforce non-root user
+  runAsNonRoot: true
+  ## @param podSecurityContext.fsGroup Group ID for volume ownership (openHAB default: 9001)
   fsGroup: 9001
+  ## @param podSecurityContext.seccompProfile Default seccomp profile for restricted PSA
+  seccompProfile:
+    type: RuntimeDefault
 
 containerSecurityContext:
-  ## @param containerSecurityContext.runAsUser User ID to run the container
+  ## @param containerSecurityContext.runAsUser User ID to run the container (openHAB default: 9001)
   runAsUser: 9001
-  ## @param containerSecurityContext.runAsGroup Group ID to run the container
+  ## @param containerSecurityContext.runAsGroup Group ID to run the container (openHAB default: 9001)
   runAsGroup: 9001
-  ## @param containerSecurityContext.allowPrivilegeEscalation Prevent privilege escalation
+  ## @param containerSecurityContext.allowPrivilegeEscalation Disallow privilege escalation
   allowPrivilegeEscalation: false
+  ## @param containerSecurityContext.readOnlyRootFilesystem Whether the root fs is read-only
+  # Note: openHAB needs writes to /userdata and /conf, so keep false or use many mounts
+  readOnlyRootFilesystem: false
+  ## @param containerSecurityContext.capabilities Drop all capabilities for security
   capabilities:
     drop:
       - ALL
