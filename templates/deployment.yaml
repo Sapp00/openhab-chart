@@ -27,9 +27,11 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command: ["/bin/bash", "-c"]
           args:
-            - |
+             - |
               set -ex
-              # Wir lesen die Secrets direkt aus dem Mount-Pfad
+              
+              # 1. READ FROM PROJECTED VOLUME (Professional way)
+              # These files exist because we defined them in 'volumes' via 'projected'
               ADMIN_HASH=$(cat /var/run/secrets/auth/admin-hash)
               ADMIN_SALT=$(cat /var/run/secrets/auth/admin-salt)
               
@@ -39,7 +41,9 @@ spec:
               [ ! -d "$USERDATA/etc" ] && cp -rL /openhab/dist/userdata/* "$USERDATA/"
               mkdir -p "$JSONDB"
 
-              # users.json bauen
+              # 2. GENERATE users.json using SHELL variables (not Helm templates)
+              # Note: We use \$ADMIN_HASH (escaped) or ensure Helm doesn't touch it.
+              # In a multi-line string in Helm, just use $ADMIN_HASH.
               cat <<EOF > "$JSONDB/users.json"
               {
                 "{{ .Values.openhab.setup.adminUser }}": {
@@ -48,12 +52,14 @@ spec:
                     "name": "{{ .Values.openhab.setup.adminUser }}",
                     "passwordHash": "$ADMIN_HASH",
                     "passwordSalt": "$ADMIN_SALT",
-                    "roles": ["administrator"]
+                    "roles": ["administrator"],
+                    "sessions": [],
+                    "apiTokens": []
                   }
                 }
               }
-              EOF
-              
+              EOF 
+
               cp /etc/openhab-init/*.json "$JSONDB/"
               # (Rest des Skripts wie gehabt)
               exec ./start.sh run
