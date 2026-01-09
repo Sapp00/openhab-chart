@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-static-config
+data:
+{{- range $name, $content := .Values.openhab.configFiles }}
+  {{ $name }}: |
+{{ $content | indent 4 }}
+{{- end }}

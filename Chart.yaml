@@ -1,0 +1,14 @@
+apiVersion: v2
+name: openhab
+description: A Helm chart for openHAB 4.2 on Kubernetes.
+type: application
+
+version: 1.0.0
+
+appVersion: "4.2.1"
+
+keywords:
+  - openhab
+  - smarthome
+  - automation
+  - iot

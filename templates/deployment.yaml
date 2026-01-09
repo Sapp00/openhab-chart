@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      securityContext:
+        runAsUser: 9001
+        runAsGroup: 9001
+        fsGroup: 9001
+      containers:
+        - name: openhab
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -ex
+              # Wir lesen die Secrets direkt aus dem Mount-Pfad
+              ADMIN_HASH=$(cat /var/run/secrets/auth/admin-hash)
+              ADMIN_SALT=$(cat /var/run/secrets/auth/admin-salt)
+              
+              USERDATA="/openhab/userdata"
+              JSONDB="$USERDATA/jsondb"
+              
+              [ ! -d "$USERDATA/etc" ] && cp -rL /openhab/dist/userdata/* "$USERDATA/"
+              mkdir -p "$JSONDB"
+
+              # users.json bauen
+              cat <<EOF > "$JSONDB/users.json"
+              {
+                "{{ .Values.openhab.setup.adminUser }}": {
+                  "class": "org.openhab.core.auth.ManagedUser",
+                  "value": {
+                    "name": "{{ .Values.openhab.setup.adminUser }}",
+                    "passwordHash": "$ADMIN_HASH",
+                    "passwordSalt": "$ADMIN_SALT",
+                    "roles": ["administrator"]
+                  }
+                }
+              }
+              EOF
+              
+              cp /etc/openhab-init/*.json "$JSONDB/"
+              # (Rest des Skripts wie gehabt)
+              exec ./start.sh run
+          volumeMounts:
+            - name: auth-volume
+              mountPath: /var/run/secrets/auth
+              readOnly: true
+            # ... andere Mounts
+      volumes:
+        - name: auth-volume
+          projected:
+            sources:
+              # Logik für den Hash
+              - secret:
+                  {{- if .Values.openhab.setup.passwordHash.secretRef }}
+                  name: {{ .Values.openhab.setup.passwordHash.secretRef.name }}
+                  items: [{ key: {{ .Values.openhab.setup.passwordHash.secretRef.key }}, path: "admin-hash" }]
+                  {{- else }}
+                  name: {{ .Release.Name }}-auth-internal
+                  items: [{ key: "passwordHash", path: "admin-hash" }]
+                  {{- end }}
+              # Logik für den Salt
+              - secret:
+                  {{- if .Values.openhab.setup.passwordSalt.secretRef }}
+                  name: {{ .Values.openhab.setup.passwordSalt.secretRef.name }}
+                  items: [{ key: {{ .Values.openhab.setup.passwordSalt.secretRef.key }}, path: "admin-salt" }]
+                  {{- else }}
+                  name: {{ .Release.Name }}-auth-internal
+                  items: [{ key: "passwordSalt", path: "admin-salt" }]
+                  {{- end }}
