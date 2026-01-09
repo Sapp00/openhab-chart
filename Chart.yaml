@@ -3,7 +3,7 @@ name: openhab
 description: A Helm chart for openHAB 4.2 on Kubernetes.
 type: application
 
-version: 1.0.0
+version: 0.0.1
 
 appVersion: "4.2.1"
 
