@@ -58,10 +58,32 @@ spec:
               # (Rest des Skripts wie gehabt)
               exec ./start.sh run
           volumeMounts:
+            - name: userdata
+              mountPath: /openhab/userdata
+            {{- if .Values.openhab.setup.pages }}
+            - name: init-files
+              mountPath: /etc/openhab-init
+            {{- end }}
+            - name: static-files
+              mountPath: /etc/openhab-static
             - name: auth-volume
               mountPath: /var/run/secrets/auth
               readOnly: true
       volumes:
+        - name: userdata
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            # Hier nutzen wir den Namen, den wir auch in pvc.yaml vergeben
+            claimName: {{ .Values.persistence.existingClaim | default "openhab-pvc" }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: init-files
+          secret:
+            secretName: {{ .Release.Name }}-jsondb
+        - name: static-files
+          configMap:
+            name: {{ .Release.Name }}-static-config
         - name: auth-volume
           projected:
             sources:
