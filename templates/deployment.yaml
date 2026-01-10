@@ -27,23 +27,25 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           command: ["/bin/bash", "-c"]
           args:
-             - |
+            - |
               set -ex
-              
-              # 1. READ FROM PROJECTED VOLUME (Professional way)
-              # These files exist because we defined them in 'volumes' via 'projected'
+
+              # 1. load variables
               ADMIN_HASH=$(cat /var/run/secrets/auth/admin-hash)
               ADMIN_SALT=$(cat /var/run/secrets/auth/admin-salt)
-              
+
               USERDATA="/openhab/userdata"
+              CONF="/openhab/conf"
               JSONDB="$USERDATA/jsondb"
-              
+
+              # init config files
+              [ ! -d "$CONF/services" ] && cp -rL /openhab/dist/conf/* "$CONF/"
+
+              # init user directory
               [ ! -d "$USERDATA/etc" ] && cp -rL /openhab/dist/userdata/* "$USERDATA/"
               mkdir -p "$JSONDB"
 
-              # 2. GENERATE users.json using SHELL variables (not Helm templates)
-              # Note: We use \$ADMIN_HASH (escaped) or ensure Helm doesn't touch it.
-              # In a multi-line string in Helm, just use $ADMIN_HASH.
+              # 2. users.json creation
               cat <<EOF > "$JSONDB/users.json"
               {
                 "{{ .Values.openhab.setup.adminUser }}": {
@@ -58,18 +60,48 @@ spec:
                   }
                 }
               }
-              EOF 
+              EOF
 
-              cp /etc/openhab-init/*.json "$JSONDB/"
-              # (Rest des Skripts wie gehabt)
-              exec ./start.sh run
+              # 3. copy init files (UI Pages etc.)
+              if [ -d "/etc/openhab-init" ]; then
+                echo "Copying UI pages and init files..."
+                cp /etc/openhab-init/*.json "$JSONDB/"
+              fi
+
+              # 4. link things, items etc. from static map
+              if [ -d "/etc/openhab-static" ]; then
+                for f in /etc/openhab-static/*; do
+                  [ -e "$f" ] || continue
+                  filename=$(basename "$f")
+                  extension="${filename##*.}"
+                  
+                  case "$extension" in
+                    things)   target_subdir="things" ;;
+                    items)    target_subdir="items" ;;
+                    sitemaps) target_subdir="sitemaps" ;;
+                    rules)    target_subdir="rules" ;;
+                    cfg)      target_subdir="services" ;; #addons.cfg -> services/
+                    persist)  target_subdir="persistence" ;;
+                    script)   target_subdir="scripts" ;;
+                    *)        target_subdir="$extension" ;;
+                  esac
+
+                  target_dir="$CONF/$target_subdir"
+                  mkdir -p "$target_dir"
+                  cp "$f" "$target_dir/"
+                  echo "Linked $filename to $target_dir/"
+                done
+              fi
+
+              echo "--- Bootstrap finished ---"
+              exec ./start.sh run          
           volumeMounts:
             - name: userdata
               mountPath: /openhab/userdata
-            {{- if .Values.openhab.setup.pages }}
+            - name: openhab-conf
+              mountPath: /openhab/conf
             - name: init-files
               mountPath: /etc/openhab-init
-            {{- end }}
             - name: static-files
               mountPath: /etc/openhab-static
             - name: auth-volume
@@ -79,14 +111,16 @@ spec:
         - name: userdata
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
-            # Hier nutzen wir den Namen, den wir auch in pvc.yaml vergeben
             claimName: {{ .Values.persistence.existingClaim | default "openhab-pvc" }}
           {{- else }}
           emptyDir: {}
           {{- end }}
+        - name: openhab-conf
+          emptyDir: {}
         - name: init-files
-          secret:
-            secretName: {{ .Release.Name }}-jsondb
+          configMap:
+            {{ $pages := index .Values.openhab.setup "pages" -}}
+            name: {{ (and $pages $pages.existingConfigMap) | default (printf "%s-jsondb" .Release.Name) }}
         - name: static-files
           configMap:
             name: {{ .Release.Name }}-static-config

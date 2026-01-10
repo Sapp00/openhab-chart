@@ -38,7 +38,7 @@ persistence:
 
 network:
   ## @param network.host The DNS hostname for the openHAB instance
-  host: "homeassistant.internal"
+  host: "openhab.internal"
   ## @param network.port Internal openHAB HTTP port
   port: 8080
   ingress:
@@ -83,9 +83,8 @@ openhab:
 
     ## @param openhab.setup.pages Default UI pages to initialize (Required to bypass Setup Wizard)
     pages:
-      overview:
-        label: "Overview"
-        component: "oh-layout-page"
+      ## @param openhab.setup.pages.existingConfigMap Name of a CM, that contains the uicomponents_ui_page.json
+      # existingConfigMap: ""
 
   ## @subsection System Environment
   ##
