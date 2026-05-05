@@ -38,11 +38,57 @@ spec:
               CONF="/openhab/conf"
               JSONDB="$USERDATA/jsondb"
 
-              # init config files
-              [ ! -d "$CONF/services" ] && cp -rL /openhab/dist/conf/* "$CONF/"
+              # Version tracking and automatic upgrades
+              VERSION_FILE="$USERDATA/.openhab-version"
+              CURRENT_VERSION="{{ .Values.image.tag }}"
 
-              # init user directory
-              [ ! -d "$USERDATA/etc" ] && cp -rL /openhab/dist/userdata/* "$USERDATA/"
+              # Get installed version (if exists)
+              if [ -f "$VERSION_FILE" ]; then
+                INSTALLED_VERSION=$(cat "$VERSION_FILE")
+              else
+                INSTALLED_VERSION="none"
+              fi
+
+              echo "Current image version: $CURRENT_VERSION"
+              echo "Installed data version: $INSTALLED_VERSION"
+
+              # init config files
+              if [ ! -d "$CONF/services" ]; then
+                echo "Initializing config directory..."
+                cp -rL /openhab/dist/conf/* "$CONF/"
+              fi
+
+              # init or upgrade user directory
+              if [ "$INSTALLED_VERSION" != "$CURRENT_VERSION" ]; then
+                if [ "$INSTALLED_VERSION" = "none" ]; then
+                  echo "Fresh installation - initializing userdata..."
+                  cp -rL /openhab/dist/userdata/* "$USERDATA/"
+                else
+                  echo "Version changed from $INSTALLED_VERSION to $CURRENT_VERSION - upgrading..."
+
+                  # Backup critical user data
+                  BACKUP_DIR="$USERDATA/.upgrade-backup-$(date +%s)"
+                  mkdir -p "$BACKUP_DIR"
+                  [ -d "$JSONDB" ] && cp -r "$JSONDB" "$BACKUP_DIR/" || true
+                  [ -f "$USERDATA/etc/org.openhab.addons.cfg" ] && cp "$USERDATA/etc/org.openhab.addons.cfg" "$BACKUP_DIR/" || true
+                  echo "Backed up user data to $BACKUP_DIR"
+
+                  # Remove old version files (but keep logs, jsondb, cache for faster startup)
+                  rm -rf "$USERDATA/etc"
+
+                  # Copy new version files
+                  cp -rL /openhab/dist/userdata/* "$USERDATA/"
+
+                  # Restore backed up user data
+                  [ -d "$BACKUP_DIR/jsondb" ] && cp -r "$BACKUP_DIR/jsondb"/* "$JSONDB/" || true
+
+                  echo "Upgrade completed"
+                fi
+
+                # Update version file
+                echo "$CURRENT_VERSION" > "$VERSION_FILE"
+              fi
+
               mkdir -p "$JSONDB"
 
               # 2. users.json creation

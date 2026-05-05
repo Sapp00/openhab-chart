@@ -16,7 +16,7 @@ image:
   ## @param image.repository openHAB image repository
   repository: openhab/openhab
   ## @param image.tag openHAB image tag
-  tag: 4.2.1
+  tag: 5.1.1
   ## @param image.pullPolicy Image pull policy
   pullPolicy: IfNotPresent
 
@@ -27,7 +27,7 @@ persistence:
   ## @param persistence.enabled Enable PVC for userdata storage
   enabled: true
   ## @param persistence.storageClass Storage class name (e.g., freenas-iscsi-csi)
-  storageClass: "freenas-iscsi-csi"
+  storageClass: default
   ## @param persistence.size Size of the userdata volume
   size: 5Gi
   ## @param persistence.accessMode PVC Access Mode
