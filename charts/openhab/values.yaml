@@ -1,3 +1,4 @@
+---
 # ==============================================================================
 # openHAB Helm Chart - Best Practice Values
 # ==============================================================================
@@ -66,7 +67,7 @@ openhab:
     ## Provide 'value' (plaintext) OR 'secretRef' (external secret).
     passwordHash:
       ## @param openhab.setup.passwordHash.value Plaintext hash
-      value: "nvJAbQ..." 
+      value: "nvJAbQ..."
       ## @param openhab.setup.passwordHash.secretRef Reference to a pre-existing Secret
       # secretRef:
       #   name: "openhab-auth-credentials"
